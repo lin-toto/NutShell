@@ -75,6 +75,9 @@ trait HasCSRConst {
   // Supervisor Protection and Translation
   val Satp          = 0x180
 
+  // Supervisor Config
+  val Senvcfg       = 0x10a
+
   // Machine Information Registers
   val Mvendorid     = 0xF11
   val Marchid       = 0xF12
@@ -104,6 +107,9 @@ trait HasCSRConst {
   val Pmpcfg2       = 0x3A2
   val Pmpcfg3       = 0x3A3
   val PmpaddrBase   = 0x3B0
+
+  // Machine Config
+  val Menvcfg       = 0x30a
 
   // Machine Counter/Timers
   // Currently, NutCore uses perfcnt csr set instead of standard Machine Counter/Timers
@@ -254,6 +260,7 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   val mcause = RegInit(UInt(XLEN.W), 0.U)
   val mtval = RegInit(UInt(XLEN.W), 0.U)
   val mepc = RegInit(UInt(XLEN.W), 0.U)
+  val menvcfg = RegInit(UInt(XLEN.W), 0.U)
 
   val mie = RegInit(0.U(XLEN.W))
   val mipWire = WireInit(0.U.asTypeOf(new Interrupt))
@@ -317,6 +324,10 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
     val mstatusNew = Cat(mstatusOld.fs === "b11".U, mstatus(XLEN-2, 0))
     mstatusNew
   }
+  val menvcfgMask = (~ZeroExt((
+    GenMask(35, 34)    | // MTE
+    GenMask(33, 32)      // PMM
+  ), 64)).asUInt
 
   val medeleg = RegInit(UInt(XLEN.W), 0.U)
   val mideleg = RegInit(UInt(XLEN.W), 0.U)
@@ -362,6 +373,7 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   val stval = Reg(UInt(XLEN.W))
   val sscratch = RegInit(UInt(XLEN.W), 0.U)
   val scounteren = RegInit(UInt(XLEN.W), 0.U)
+  val senvcfg = RegInit(UInt(XLEN.W), 0.U)
 
   if (Settings.get("HasDTLB")) {
     BoringUtils.addSource(satp, "CSRSATP")
@@ -441,6 +453,9 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
     // Supervisor Protection and Translation
     MaskedRegMap(Satp, satp),
 
+    // Supervisor Config
+    MaskedRegMap(Senvcfg, senvcfg, menvcfgMask),
+
     // Machine Information Registers
     MaskedRegMap(Mvendorid, mvendorid, 0.U, MaskedRegMap.Unwritable),
     MaskedRegMap(Marchid, marchid, 0.U, MaskedRegMap.Unwritable),
@@ -471,7 +486,10 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
     MaskedRegMap(PmpaddrBase + 0, pmpaddr0, pmpaddrWmask),
     MaskedRegMap(PmpaddrBase + 1, pmpaddr1, pmpaddrWmask),
     MaskedRegMap(PmpaddrBase + 2, pmpaddr2, pmpaddrWmask),
-    MaskedRegMap(PmpaddrBase + 3, pmpaddr3, pmpaddrWmask)
+    MaskedRegMap(PmpaddrBase + 3, pmpaddr3, pmpaddrWmask),
+
+    // Machine Config
+    MaskedRegMap(Menvcfg, menvcfg, menvcfgMask)
 
   ) ++ perfCntsLoMapping //++ (if (XLEN == 32) perfCntsHiMapping else Nil)
 
@@ -496,6 +514,8 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   val justRead = (func === CSROpType.set || func === CSROpType.seti) && src1 === 0.U  // csrrs and csrrsi are exceptions when their src1 is zero
   val isIllegalWrite = wen && (addr(11, 10) === "b11".U) && !justRead  // Write a read-only CSR register
   val isIllegalAccess = isIllegalMode || isIllegalWrite
+
+  //printf("csr: pc=%x addr=%x rdata=%x wdata=%x func=%x\n", io.cfIn.pc, addr, rdata, wdata, func)
 
   MaskedRegMap.generate(mapping, addr, rdata, wen && !isIllegalAccess, wdata)
   val isIllegalAddr = MaskedRegMap.isIllegalAddr(mapping, addr)
