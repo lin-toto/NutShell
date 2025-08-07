@@ -193,6 +193,7 @@ class CSRIO extends FunctionUnitIO {
   val imemMMU = Flipped(new MMUIO)
   val dmemMMU = Flipped(new MMUIO)
   val wenFix = Output(Bool())
+  val isPerfCounterRead = Output(Bool())
 }
 
 class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
@@ -409,6 +410,12 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   val perfCntsLoMapping = (0 until nrPerfCnts).map { case i => MaskedRegMap(0xb00 + i, perfCnts(i)) }
   val perfCntsHiMapping = (0 until nrPerfCnts).map { case i => MaskedRegMap(0xb80 + i, perfCnts(i)(63, 32)) }
 
+  // User Counter/Timers
+  val cycleWire = WireInit(0.U(64.W))
+  val timeWire = WireInit(0.U(64.W))
+  val instretWire = WireInit(0.U(64.W))
+  BoringUtils.addSink(timeWire, "mtime")
+
   // CSR reg map
   val mapping = Map(
 
@@ -433,6 +440,9 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
     // MaskedRegMap(Cycle, cycle),
     // MaskedRegMap(Time, time),
     // MaskedRegMap(Instret, instret),
+    MaskedRegMap(Cycle, cycleWire, 0.U, MaskedRegMap.Unwritable),
+    MaskedRegMap(Time, timeWire, 0.U, MaskedRegMap.Unwritable),
+    MaskedRegMap(Instret, instretWire, 0.U, MaskedRegMap.Unwritable),
 
     // Supervisor Trap Setup
     MaskedRegMap(Sstatus, mstatus, sstatusWmask, mstatusUpdateSideEffect, sstatusRmask),
@@ -469,7 +479,7 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
     MaskedRegMap(Mideleg, mideleg, "h222".U(64.W)),
     MaskedRegMap(Mie, mie),
     MaskedRegMap(Mtvec, mtvec),
-    MaskedRegMap(Mcounteren, mcounteren),
+    MaskedRegMap(Mcounteren, mcounteren, 0.U, MaskedRegMap.Unwritable),
 
     // Machine Trap Handling
     MaskedRegMap(Mscratch, mscratch),
@@ -514,6 +524,7 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   val justRead = (func === CSROpType.set || func === CSROpType.seti) && src1 === 0.U  // csrrs and csrrsi are exceptions when their src1 is zero
   val isIllegalWrite = wen && (addr(11, 10) === "b11".U) && !justRead  // Write a read-only CSR register
   val isIllegalAccess = isIllegalMode || isIllegalWrite
+  io.isPerfCounterRead := valid && (addr(11, 8) === 0xb.U || addr(11, 8) === 0xc.U)
 
   //printf("csr: pc=%x addr=%x rdata=%x wdata=%x func=%x\n", io.cfIn.pc, addr, rdata, wdata, func)
 
@@ -872,6 +883,9 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
     "MdpNoInst"   -> (0xb69, "perfCntCondMdpNoInst"   )
     // "MmemLBS"  -> (0xb6a, "perfCntCondMmemLBS"   ),//TODO
   )
+
+  cycleWire := perfCnts(0xb00 & 0x7f)
+  instretWire := perfCnts(0xb02 & 0x7f)
 
   val perfCntList = generalPerfCntList ++  (if (EnableOutOfOrderExec) outOfOrderPerfCntList else sequentialPerfCntList)
 

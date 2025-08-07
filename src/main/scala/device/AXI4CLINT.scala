@@ -24,6 +24,7 @@ import bus.axi4._
 import utils._
 
 class ClintIO extends Bundle {
+  val mtime = Output(UInt(64.W))
   val mtip = Output(Bool())
   val msip = Output(Bool())
 }
@@ -63,6 +64,7 @@ class AXI4CLINT(sim: Boolean = false) extends AXI4SlaveModule(new AXI4Lite, new 
   RegMap.generate(mapping, getOffset(raddr), in.r.bits.data,
     getOffset(waddr), in.w.fire, in.w.bits.data, MaskExpand(in.w.bits.strb))
 
+  io.extra.get.mtime := RegNext(mtime)
   io.extra.get.mtip := RegNext(mtime >= mtimecmp)
   io.extra.get.msip := RegNext(msip =/= 0.U)
 }

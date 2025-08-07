@@ -51,7 +51,8 @@ class WBU(implicit val p: NutCoreConfig) extends NutCoreModule{
     difftest_commit.valid  := io.in.valid
     difftest_commit.pc     := SignExt(io.in.bits.decode.cf.pc, AddrBits)
     difftest_commit.instr  := io.in.bits.decode.cf.instr
-    difftest_commit.skip   := io.in.bits.isMMIO
+    difftest_commit.skip   := io.in.bits.isMMIO || io.in.bits.isPerfCounterRead
+    // when (difftest_commit.skip && difftest_commit.valid) { printf("Difftest skipped at PC: %x\n", io.in.bits.decode.cf.pc) }
     difftest_commit.isRVC  := io.in.bits.decode.cf.instr(1,0)=/="b11".U
     difftest_commit.rfwen  := io.wb.rfWen && io.wb.rfDest =/= 0.U // && valid(ringBufferTail)(i) && commited(ringBufferTail)(i)
     difftest_commit.fpwen  := false.B

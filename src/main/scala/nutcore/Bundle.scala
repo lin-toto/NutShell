@@ -83,6 +83,7 @@ class WriteBackIO extends NutCoreBundle {
 class CommitIO extends NutCoreBundle {
   val decode = new DecodeIO
   val isMMIO = Output(Bool())
+  val isPerfCounterRead = Output(Bool())
   val intrNO = Output(UInt(XLEN.W))
   val commits = Output(Vec(FuType.num, UInt(XLEN.W)))
 }
