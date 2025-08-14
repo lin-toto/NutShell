@@ -78,5 +78,7 @@ object TopMain extends App {
   (new ChiselStage).execute(newArgs, Seq(generator)
     :+ CIRCTTargetAnnotation(CIRCTTarget.SystemVerilog)
     :+ FirtoolOption("--disable-annotation-unknown")
+    :+ FirtoolOption("--repl-seq-mem")
+    :+ FirtoolOption("--repl-seq-mem-file=$(TOP).$(RTL_SUFFIX).conf")
   )
 }
