@@ -99,7 +99,7 @@ class AXI4DummySD extends AXI4SlaveModule(new AXI4Lite) with HasSDConst {
         regs(sdrsp3) := "h8c26012a".U
       }
       is (MMC_SEND_STATUS.U) {
-        regs(sdrsp0) := 0.U
+        regs(sdrsp0) := "h00000900".U
         regs(sdrsp1) := 0.U
         regs(sdrsp2) := 0.U
         regs(sdrsp3) := 0.U
